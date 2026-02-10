@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>VL MARKET</title>
+<style>
+body { font-family: Arial; background:#f2f2f2; padding:10px }
+h1,h2 { text-align:center }
+.card {
+  background:#fff; padding:10px; margin:10px 0;
+  border-radius:10px; box-shadow:0 0 5px #ccc
+}
+button {
+  background:#27ae60; color:#fff; border:none;
+  padding:6px 10px; border-radius:5px; cursor:pointer; margin:2px
+}
+button.rojo{background:#c0392b}
+select,input {
+  width:100%; padding:6px; margin:5px 0
+}
+.producto { border-bottom:1px solid #ddd; padding:6px 0 }
+.fila { display:flex; gap:6px; align-items:center; flex-wrap:wrap }
+#carrito { background:#fff; padding:10px; border-radius:10px }
+.total { font-size:18px; font-weight:bold; text-align:right }
+</style>
+</head>
+
+<body>
+
+<h1>🛒 VL MARKET</h1>
+<p style="text-align:center">Catálogo digital - Pedidos por WhatsApp</p>
+
+<!-- PANEL PARA AGREGAR PRODUCTOS -->
+<div class="card">
+<h2>➕ Agregar producto</h2>
+<input id="nombreProd" placeholder="Nombre del producto">
+<input id="precio" placeholder="Precio (solo número)">
+<select id="categoria">
+  <option>ASEO</option>
+  <option>GRANOS</option>
+  <option>CUIDADO PERSONAL</option>
+  <option>OTROS</option>
+</select>
+<button onclick="agregarProducto()">Agregar al catálogo</button>
+</div>
+
+<!-- FILTRO -->
+<div class="card">
+<h2>📂 Categorías</h2>
+<select onchange="filtrar(this.value)">
+  <option value="TODOS">Todos</option>
+  <option value="ASEO">ASEO</option>
+  <option value="GRANOS">GRANOS</option>
+  <option value="CUIDADO PERSONAL">CUIDADO PERSONAL</option>
+  <option value="OTROS">OTROS</option>
+</select>
+</div>
+
+<!-- CATÁLOGO -->
+<div id="catalogo"></div>
+
+<!-- CARRITO -->
+<div id="carrito">
+<h2>📦 Pedido</h2>
+
+<input id="cliente" placeholder="👤 Nombre del cliente">
+<input id="celular" placeholder="📞 Celular del cliente">
+<input id="direccion" placeholder="📍 Dirección del cliente">
+
+<div id="lista"></div>
+<div class="total" id="total"></div>
+
+<button class="rojo" onclick="vaciar()">🧹 Vaciar carrito</button>
+<button onclick="enviarPedido()">📲 Enviar pedido por WhatsApp</button>
+</div>
+
+<script>
+let productos = JSON.parse(localStorage.getItem("productos")) || [
+  {id:1, nombre:"Arroz ROA 500g", precio:3000, categoria:"GRANOS"},
+  {id:2, nombre:"Frijol 500g", precio:3500, categoria:"GRANOS"},
+  {id:3, nombre:"Atún Isabel", precio:5000, categoria:"OTROS"},
+  {id:4, nombre:"Papel Higiénico Elite", precio:6000, categoria:"ASEO"},
+  {id:5, nombre:"Sal 500g", precio:1200, categoria:"GRANOS"},
+  {id:6, nombre:"Sal 1000g", precio:2000, categoria:"GRANOS"}
+];
+
+let carrito = JSON.parse(localStorage.getItem("carrito")) || [];
+
+function guardar(){
+  localStorage.setItem("productos", JSON.stringify(productos));
+  localStorage.setItem("carrito", JSON.stringify(carrito));
+}
+
+mostrar(productos);
+actualizarCarrito();
+
+function agregarProducto(){
+  let nombre = document.getElementById("nombreProd").value;
+  let precio = Number(document.getElementById("precio").value);
+  let categoria = document.getElementById("categoria").value;
+  if(!nombre || !precio){ alert("Complete los datos"); return; }
+  productos.push({id:Date.now(), nombre, precio, categoria});
+  guardar(); mostrar(productos);
+  document.getElementById("nombreProd").value="";
+  document.getElementById("precio").value="";
+}
+
+function mostrar(lista){
+  let html="";
+  lista.forEach(p=>{
+    html+=`
+    <div class="card producto">
+      <b>${p.nombre}</b><br>
+      💲${p.precio.toLocaleString()}<br>
+      📂 ${p.categoria}<br>
+      <div class="fila">
+        <button onclick="sumar(${p.id})">➕</button>
+        <button class="rojo" onclick="restar(${p.id})">➖</button>
+      </div>
+    </div>`;
+  });
+  document.getElementById("catalogo").innerHTML=html;
+}
+
+function filtrar(cat){
+  if(cat=="TODOS"){ mostrar(productos); return; }
+  mostrar(productos.filter(p=>p.categoria==cat));
+}
+
+function sumar(id){
+  let item = carrito.find(i=>i.id==id);
+  if(item) item.cant++;
+  else{
+    let p = productos.find(x=>x.id==id);
+    carrito.push({id:p.id, nombre:p.nombre, precio:p.precio, cant:1});
+  }
+  guardar(); actualizarCarrito();
+}
+
+function restar(id){
+  let item = carrito.find(i=>i.id==id);
+  if(!item) return;
+  item.cant--;
+  if(item.cant<=0) carrito = carrito.filter(i=>i.id!=id);
+  guardar(); actualizarCarrito();
+}
+
+function actualizarCarrito(){
+  let html="", total=0;
+  carrito.forEach(i=>{
+    let sub = i.precio * i.cant;
+    total += sub;
+    html += `${i.cant} x ${i.nombre} = $${sub.toLocaleString()}<br>`;
+  });
+  document.getElementById("lista").innerHTML = html || "Sin productos";
+  document.getElementById("total").innerHTML = "TOTAL: $ " + total.toLocaleString();
+}
+
+function vaciar(){
+  if(!confirm("¿Vaciar carrito?")) return;
+  carrito = [];
+  guardar(); actualizarCarrito();
+}
+
+function enviarPedido(){
+  if(carrito.length==0){ alert("Agrega productos"); return; }
+
+  let cliente = document.getElementById("cliente").value || "No indicado";
+  let celular = document.getElementById("celular").value || "No indicado";
+  let direccion = document.getElementById("direccion").value || "No indicada";
+
+  let texto = "🛒 *PEDIDO VL MARKET* %0A%0A";
+  texto += `👤 Cliente: ${cliente}%0A`;
+  texto += `📞 Celular: ${celular}%0A`;
+  texto += `📍 Dirección: ${direccion}%0A%0A`;
+
+  carrito.forEach(i=>{
+    texto += `${i.cant} x ${i.nombre} = $${(i.precio*i.cant).toLocaleString()}%0A`;
+  });
+
+  let total = carrito.reduce((a,b)=>a+b.precio*b.cant,0);
+  texto += `%0A💰 TOTAL: $${total.toLocaleString()}`;
+
+  window.open("https://wa.me/573127952938?text="+texto,"_blank");
+}
+</script>
+
+</body>
+</html>
